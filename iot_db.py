@@ -27,7 +27,7 @@ def init_db():
         os.chdir(os.path.dirname(sys.argv[0]))
     db = sqlite3.connect('iot.db')
     c = db.cursor()
-    c.execute("""CREATE TABLE IF NOT EXISTS meta (key TEXT UNIQUE, value TEXT)""")
+    c.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT UNIQUE, value TEXT)")
 
     # check DB version to see if we need to update it
     version = get_setting("schema_version")
