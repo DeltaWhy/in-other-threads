@@ -65,3 +65,18 @@ if __name__ == "__main__":
 
     for subreddit in subreddits:
         get_threads(subreddit)
+
+def test_thread_picking():
+    articles = db.get_article_ids()
+    sources = {}
+    for article in articles:
+        threads = db.get_source_thread_ids(article)
+        if len(threads) > 0:
+            sources[article] = threads
+    targets = {}
+    for article in articles:
+        if article in sources:
+            threads = db.get_target_thread_ids(article)
+            if len(threads) > 0:
+                targets[article] = threads
+    print("Sources:\n%s\n\nTargets:\n%s\n" % (sources, targets))

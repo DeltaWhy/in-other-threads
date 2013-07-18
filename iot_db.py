@@ -22,6 +22,10 @@ def set_setting(key, value):
     db.commit()
 
 def init_db():
+    """
+    Initialize the database connection. Creates the database if it does
+    not exist and updates the schema if it is an older version.
+    """
     global db
     db = sqlite3.connect('iot.db')
     c = db.cursor()
@@ -67,3 +71,56 @@ def init_db():
     elif version > 1:
         logger.critical("Unknown database version %d.", version)
         exit(1)
+
+def get_article_ids():
+    """
+    Returns a list of article ids which have more than one thread.
+    """
+    if db == None:
+        raise RuntimeError('DB not initialized')
+    c = db.cursor()
+    c.execute("""SELECT article_id FROM
+                    (SELECT article_id, COUNT(id) as thread_count FROM threads GROUP BY article_id)
+                    WHERE thread_count > 1""")
+    ids = []
+    for row in c:
+        ids.append(row[0])
+    return ids
+
+def get_source_thread_ids(article_id):
+    """
+    Returns a list of thread ids which we can reference.
+    """
+    if db == None:
+        raise RuntimeError('DB not initialized')
+    c = db.cursor()
+
+    # don't use very new or very small threads
+    # because the best comment probably hasn't been posted yet
+    c.execute("""SELECT id FROM threads WHERE article_id=?
+                    AND posted_at < DATETIME('NOW', '-4 hours')
+                    AND comment_count >= 10""", (article_id,))
+    ids = []
+    for row in c:
+        ids.append(row[0])
+    return ids
+
+def get_target_thread_ids(article_id):
+    """
+    Returns a list of thread ids which we can post to.
+    """
+    if db == None:
+        raise RuntimeError('DB not initialized')
+    c = db.cursor()
+
+    # don't bump old threads
+    # we don't want to be too disruptive so for now also avoid new/small threads
+    c.execute("""SELECT id FROM threads WHERE article_id=?
+                    AND posted_at < DATETIME('NOW', '-4 hours')
+                    AND posted_at > DATETIME('NOW', '-30 hours')
+                    AND comment_count >= 10""", (article_id,))
+    ids = []
+    for row in c:
+        ids.append(row[0])
+    return ids
+
