@@ -89,7 +89,7 @@ def get_best_comment(thread_id):
         logger.info("Found new comment %s on thread %s in %s", comment.id, thread.id, thread.subreddit.display_name)
         c.execute("INSERT INTO comments (thread_id, poster, body, permalink, karma, comment_count, posted_at) VALUES (?,?,?,?,?,?,?)",
                 [thread_row[0], comment.author.name, comment.body, comment.permalink, comment.score, None,
-                    datetime.datetime.utcfromtimestamp(thread.created_utc)])
+                    datetime.datetime.utcfromtimestamp(comment.created_utc)])
         db.db.commit()
         return
 
@@ -148,7 +148,7 @@ Selected comment from that thread:
     comment = target.add_comment(post)
     c.execute("INSERT INTO comments (thread_id, poster, body, permalink, karma, comment_count, posted_at) VALUES (?,?,?,?,?,?,?)",
             [target, comment.author.name, comment.body, comment.permalink, comment.score, None,
-                datetime.datetime.utcfromtimestamp(thread.created_utc)])
+                datetime.datetime.utcfromtimestamp(comment.created_utc)])
     c.execute("UPDATE threads SET handled=1 WHERE id=?", (target,))
     db.db.commit()
 
