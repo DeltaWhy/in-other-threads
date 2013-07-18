@@ -73,7 +73,7 @@ def init_db():
         logger.info("Updating database to version 2...")
         set_setting("schema_version",2)
         c.executescript("""
-                ALTER TABLE threads ADD COLUMN handled INTEGER NOT NULL DEFAULT 0
+                ALTER TABLE threads ADD COLUMN handled INTEGER NOT NULL DEFAULT 0;
                 """)
     elif version > 2:
         logger.critical("Unknown database version %d.", version)
