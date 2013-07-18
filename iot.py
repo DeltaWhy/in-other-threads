@@ -93,6 +93,9 @@ def get_best_comment(thread_id):
         db.db.commit()
         return
 
+def quote_comment(comment):
+    return "\n".join(["> " + line for line in comment.split("\n")])
+
 def do_post(source=None, target=None):
     if not(source) or not(target):
         raise ArgumentError("Must provide both source and target thread ids")
@@ -118,12 +121,18 @@ def do_post(source=None, target=None):
         logger.info("No comment found for %d", source)
         return
 
-    post = """This article is also being discussed in /r/%s.
+    post = """ This article is also being discussed in [a thread in /r/%(subreddit)s](%(permalink)s).
 
-    Selected comment from that thread:
-    > %s""" % (thread_row[3], comment_row[3])
+Selected comment from that thread:
+%(quoted_comment)s
 
-    logger.debug(post)
+^(by /u/%(poster)s ()[^link](%(comment_permalink)s)^)
+
+***
+[^(about this bot)](http://google.com)
+""" % {'subreddit': thread_row[3], 'permalink': thread_row[4], 'quoted_comment': quote_comment(comment_row[3]),
+        'poster': comment_row[2], 'comment_permalink': comment_row[4]}
+
     if not(args) or args.username == None:
         logger.info("Not posting because not logged in.")
         return
@@ -134,8 +143,14 @@ def do_post(source=None, target=None):
         logger.info("Not posting because not in /r/test.")
         return
 
-    # TODO: actually post here
-    # TODO: mark thread as handled
+    logger.debug(post)
+    target = reddit.get_submission(url=target_row[4])
+    comment = target.add_comment(post)
+    c.execute("INSERT INTO comments (thread_id, poster, body, permalink, karma, comment_count, posted_at) VALUES (?,?,?,?,?,?,?)",
+            [target, comment.author.name, comment.body, comment.permalink, comment.score, None,
+                datetime.datetime.utcfromtimestamp(thread.created_utc)])
+    c.execute("UPDATE threads SET handled=1 WHERE id=?", (target,))
+    db.db.commit()
 
 
 ##MAIN PROGRAM
