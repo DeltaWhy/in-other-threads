@@ -3,18 +3,38 @@ import praw
 import sys, os
 import logging
 import datetime
+import argparse
 
+args = None
 if __name__ == "__main__":
     os.chdir(os.path.dirname(sys.argv[0]))
+    parser = argparse.ArgumentParser(description='A Reddit bot to encourage better political discussions.',
+                epilog='This script exits after finishing its work, so it should be run in a cron job or similar.')
+    parser.add_argument('username', nargs='?', help='Username for the bot. If not provided, will not attempt to post.')
+    parser.add_argument('password', nargs='?', help='Password for the bot. If not provided, will prompt.')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--debug', help="Show debug messages.", action='store_true')
+    group.add_argument('-q','--quiet', dest='quiet', help="Suppress info messages in console.", action='store_true')
+
+    parser.add_argument('--no-fetch', help="Don't check for new threads, only use existing data.", action='store_true')
+    args = parser.parse_args()
 
 # set up logging
 rootLogger = logging.getLogger()
 rootLogger.setLevel(logging.DEBUG)
 fh = logging.FileHandler('iot.log')
-fh.setLevel(logging.DEBUG)
+if args and args.debug:
+    fh.setLevel(logging.DEBUG)
+else:
+    fh.setLevel(logging.INFO)
 fh.setFormatter(logging.Formatter(fmt="%(asctime)s %(name)s [%(levelname)s]: %(message)s"))
 ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
+if args and args.debug:
+    ch.setLevel(logging.DEBUG)
+elif args and args.quiet:
+    ch.setLevel(logging.WARNING)
+else:
+    ch.setLevel(logging.INFO)
 rootLogger.addHandler(fh)
 rootLogger.addHandler(ch)
 logger = logging.getLogger(__name__)
@@ -53,18 +73,19 @@ reddit = None
 subreddits = ["anarchism","conservative","inthenews","liberal","libertarian","news","politics","socialism","technology","worldnews","worldpolitics","test"]
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        logger.warning("No login given, running in test mode.")
-    elif len(sys.argv) != 3:
-        logger.critical("Usage: %s username password", os.path.basename(sys.argv[0]))
-        exit(1)
     reddit = praw.Reddit(user_agent="InOtherThreads v0.1 github.com/DeltaWhy/in-other-threads")
-    if len(sys.argv) == 3:
-        logger.debug("Logging in as %s", sys.argv[1])
-        reddit.login(sys.argv[1], sys.argv[2])
+    if args.username == None:
+        logger.warning("No login given, running in test mode.")
+    elif args.password == None:
+        logger.debug("Logging in as %s", args.username)
+        reddit.login(args.username)
+    else:
+        logger.debug("Logging in as %s", args.username)
+        reddit.login(args.username, args.password)
 
-    for subreddit in subreddits:
-        get_threads(subreddit)
+    if not(args.no_fetch):
+        for subreddit in subreddits:
+            get_threads(subreddit)
 
 def test_thread_picking():
     articles = db.get_article_ids()
