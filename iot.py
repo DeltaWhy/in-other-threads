@@ -195,7 +195,7 @@ if __name__ == "__main__":
 
     for article,target_threads in targets.items():
         for target_thread in target_threads:
-            source_threads = sources[article].copy()
+            source_threads = [x for x in sources[article]] #no list.copy in Python 3.1!!!
             if target_thread in source_threads:
                 source_threads.remove(target_thread)
             for source_thread in source_threads:
