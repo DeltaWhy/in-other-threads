@@ -18,7 +18,7 @@ def set_setting(key, value):
     if db == None:
         raise RuntimeError('DB not initialized')
     c = db.cursor()
-    c.execute("INSERT INTO meta VALUES (?,?)", (key, value,))
+    c.execute("INSERT OR REPLACE INTO meta VALUES (?,?)", (key, value,))
     db.commit()
 
 def init_db():
@@ -53,6 +53,7 @@ def init_db():
                     karma INTEGER,
                     comment_count INTEGER,
                     posted_at TEXT,
+                    handled INTEGER NOT NULL DEFAULT 0,
                     FOREIGN KEY(article_id) REFERENCES articles(id));
                 CREATE TABLE comments (
                     id INTEGER PRIMARY KEY,
@@ -68,7 +69,13 @@ def init_db():
                 CREATE INDEX thread_permalinks ON threads(permalink);
                 CREATE INDEX comment_permalinks ON comments(permalink);
                 """)
-    elif version > 1:
+    elif version == 1:
+        logger.info("Updating database to version 2...")
+        set_setting("schema_version",2)
+        c.executescript("""
+                ALTER TABLE threads ADD COLUMN handled INTEGER NOT NULL DEFAULT 0
+                """)
+    elif version > 2:
         logger.critical("Unknown database version %d.", version)
         exit(1)
 
