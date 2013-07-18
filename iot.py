@@ -65,6 +65,33 @@ def get_threads(subreddit_name):
                         datetime.datetime.utcfromtimestamp(thread.created_utc)])
             db.db.commit()
 
+def get_best_comment(thread_id):
+    c = db.db.cursor()
+    c.execute("""SELECT id, article_id, poster, subreddit, permalink, karma, comment_count, posted_at
+                FROM threads WHERE id=?""", (thread_id,))
+    thread_row = c.fetchone()
+    if thread_row == None:
+        raise KeyError("Thread %d not found in database." % thread_id)
+    permalink = thread_row[4]
+    thread = reddit.get_submission(url=permalink)
+
+    # comments are sorted by best by default
+    # loop until we find a real comment
+    for comment in thread.comments:
+        if not(comment.author): #[deleted]
+            continue
+        if type(comment) == praw.objects.MoreComments:
+            return
+        c.execute("SELECT id FROM comments WHERE permalink=?", (comment.permalink,))
+        if c.fetchone():
+            return #don't double-create
+        logger.info("Found new comment %s on thread %s in %s", comment.id, thread.id, thread.subreddit.display_name)
+        c.execute("INSERT INTO comments (thread_id, poster, body, permalink, karma, comment_count, posted_at) VALUES (?,?,?,?,?,?,?)",
+                [thread_row[0], comment.author.name, comment.body, comment.permalink, comment.score, None,
+                    datetime.datetime.utcfromtimestamp(thread.created_utc)])
+        db.db.commit()
+        return
+
 
 ##MAIN PROGRAM
 db.init_db()
@@ -87,17 +114,21 @@ if __name__ == "__main__":
         for subreddit in subreddits:
             get_threads(subreddit)
 
-def test_thread_picking():
     articles = db.get_article_ids()
     sources = {}
     for article in articles:
         threads = db.get_source_thread_ids(article)
         if len(threads) > 0:
             sources[article] = threads
+
+    if not(args.no_fetch):
+        # flatten the sources
+        for thread in set([id for sublist in sources.values() for id in sublist]):
+            get_best_comment(thread)
+
     targets = {}
     for article in articles:
         if article in sources:
             threads = db.get_target_thread_ids(article)
             if len(threads) > 0:
                 targets[article] = threads
-    print("Sources:\n%s\n\nTargets:\n%s\n" % (sources, targets))
