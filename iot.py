@@ -47,7 +47,7 @@ def get_threads(subreddit_name):
 db.init_db()
 
 reddit = None
-subreddits = ["politics","conservative","liberal","news","TrayvonMartin"]
+subreddits = ["anarchism","conservative","inthenews","liberal","libertarian","news","politics","socialism","technology","worldnews","worldpolitics","test"]
 
 if __name__ == "__main__":
     if len(sys.argv) == 1:
