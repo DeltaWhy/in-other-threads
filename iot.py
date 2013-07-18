@@ -4,6 +4,9 @@ import sys, os
 import logging
 import datetime
 
+if __name__ == "__main__":
+    os.chdir(os.path.dirname(sys.argv[0]))
+
 # set up logging
 rootLogger = logging.getLogger()
 rootLogger.setLevel(logging.DEBUG)

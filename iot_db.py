@@ -23,8 +23,6 @@ def set_setting(key, value):
 
 def init_db():
     global db
-    if __name__ == "__main__":
-        os.chdir(os.path.dirname(sys.argv[0]))
     db = sqlite3.connect('iot.db')
     c = db.cursor()
     c.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT UNIQUE, value TEXT)")
