@@ -17,6 +17,7 @@ if __name__ == "__main__":
     group.add_argument('-q','--quiet', dest='quiet', help="Suppress info messages in console.", action='store_true')
 
     parser.add_argument('--no-fetch', help="Don't check for new threads, only use existing data.", action='store_true')
+    parser.add_argument('--no-post', help="Don't make any posts.", action='store_true')
     args = parser.parse_args()
 
 # set up logging
@@ -92,6 +93,50 @@ def get_best_comment(thread_id):
         db.db.commit()
         return
 
+def do_post(source=None, target=None):
+    if not(source) or not(target):
+        raise ArgumentError("Must provide both source and target thread ids")
+    logger.info("Cross-post from %d to %d", source, target)
+    c = db.db.cursor()
+
+    c.execute("""SELECT id, article_id, poster, subreddit, permalink, karma, comment_count, posted_at
+                FROM threads WHERE id=?""", (source,))
+    thread_row = c.fetchone()
+    if thread_row == None:
+        raise KeyError("Thread %d not found in database." % source)
+
+    c.execute("""SELECT id, article_id, poster, subreddit, permalink, karma, comment_count, posted_at
+                FROM threads WHERE id=?""", (target,))
+    target_row = c.fetchone()
+    if target_row == None:
+        raise KeyError("Thread %d not found in database." % source)
+
+    c.execute("""SELECT id, thread_id, poster, body, permalink, karma, comment_count, posted_at
+                FROM comments WHERE thread_id=? ORDER BY id DESC""", (source,))
+    comment_row = c.fetchone()
+    if comment_row == None:
+        logger.info("No comment found for %d", source)
+        return
+
+    post = """This article is also being discussed in /r/%s.
+
+    Selected comment from that thread:
+    > %s""" % (thread_row[3], comment_row[3])
+
+    logger.debug(post)
+    if not(args) or args.username == None:
+        logger.info("Not posting because not logged in.")
+        return
+    if args and args.no_post:
+        logger.info("Not posting because --no-post was given.")
+        return
+    if target_row[3] != 'test':
+        logger.info("Not posting because not in /r/test.")
+        return
+
+    # TODO: actually post here
+    # TODO: mark thread as handled
+
 
 ##MAIN PROGRAM
 db.init_db()
@@ -132,3 +177,11 @@ if __name__ == "__main__":
             threads = db.get_target_thread_ids(article)
             if len(threads) > 0:
                 targets[article] = threads
+
+    for article,target_threads in targets.items():
+        for target_thread in target_threads:
+            source_threads = sources[article].copy()
+            if target_thread in source_threads:
+                source_threads.remove(target_thread)
+            for source_thread in source_threads:
+                do_post(source=source_thread, target=target_thread)

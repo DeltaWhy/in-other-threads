@@ -106,7 +106,8 @@ def get_source_thread_ids(article_id):
     # because the best comment probably hasn't been posted yet
     c.execute("""SELECT id FROM threads WHERE article_id=?
                     AND posted_at < DATETIME('NOW', '-4 hours')
-                    AND comment_count >= 10""", (article_id,))
+                    AND comment_count >= 10
+                    AND subreddit!='test'""", (article_id,))
     ids = []
     for row in c:
         ids.append(row[0])
@@ -123,9 +124,12 @@ def get_target_thread_ids(article_id):
     # don't bump old threads
     # we don't want to be too disruptive so for now also avoid new/small threads
     c.execute("""SELECT id FROM threads WHERE article_id=?
-                    AND posted_at < DATETIME('NOW', '-4 hours')
-                    AND posted_at > DATETIME('NOW', '-30 hours')
-                    AND comment_count >= 10""", (article_id,))
+                    AND handled = 0
+                    AND (
+                            (posted_at < DATETIME('NOW', '-4 hours')
+                            AND posted_at > DATETIME('NOW', '-30 hours')
+                            AND comment_count >= 10)
+                        OR subreddit='test')""", (article_id,))
     ids = []
     for row in c:
         ids.append(row[0])
