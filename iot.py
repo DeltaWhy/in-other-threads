@@ -121,7 +121,7 @@ def do_post(source=None, target=None):
         logger.info("No comment found for %d", source)
         return
 
-    post = """ This article is also being discussed in [a thread in /r/%(subreddit)s](%(permalink)s).
+    post = """This article is also being discussed in [a thread in /r/%(subreddit)s](%(permalink)s).
 
 Selected comment from that thread:
 %(quoted_comment)s

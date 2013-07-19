@@ -36,48 +36,66 @@ def init_db():
     if version != None:
         version = int(version)
 
-    if version == None:
-        logger.info("Creating database...")
-        set_setting("schema_version",1)
-        c.executescript("""
-                PRAGMA foreign_keys = ON;
-                CREATE TABLE articles (
-                    id INTEGER PRIMARY KEY,
-                    url TEXT UNIQUE);
-                CREATE TABLE threads (
-                    id INTEGER PRIMARY KEY,
-                    article_id INTEGER,
-                    poster TEXT,
-                    subreddit TEXT,
-                    permalink TEXT,
-                    karma INTEGER,
-                    comment_count INTEGER,
-                    posted_at TEXT,
-                    handled INTEGER NOT NULL DEFAULT 0,
-                    FOREIGN KEY(article_id) REFERENCES articles(id));
-                CREATE TABLE comments (
-                    id INTEGER PRIMARY KEY,
-                    thread_id INTEGER,
-                    poster TEXT,
-                    body TEXT,
-                    permalink TEXT,
-                    karma INTEGER,
-                    comment_count INTEGER,
-                    posted_at TEXT,
-                    FOREIGN KEY(thread_id) REFERENCES threads(id));
-                CREATE INDEX article_urls ON articles(url);
-                CREATE INDEX thread_permalinks ON threads(permalink);
-                CREATE INDEX comment_permalinks ON comments(permalink);
-                """)
-    elif version == 1:
-        logger.info("Updating database to version 2...")
-        set_setting("schema_version",2)
-        c.executescript("""
-                ALTER TABLE threads ADD COLUMN handled INTEGER NOT NULL DEFAULT 0;
-                """)
-    elif version > 2:
-        logger.critical("Unknown database version %d.", version)
-        exit(1)
+
+    while version != 3:
+        if version == None:
+            logger.info("Creating database...")
+            set_setting("schema_version",1)
+            c.executescript("""
+                    PRAGMA foreign_keys = ON;
+                    CREATE TABLE articles (
+                        id INTEGER PRIMARY KEY,
+                        url TEXT UNIQUE);
+                    CREATE TABLE threads (
+                        id INTEGER PRIMARY KEY,
+                        article_id INTEGER,
+                        poster TEXT,
+                        subreddit TEXT,
+                        permalink TEXT,
+                        karma INTEGER,
+                        comment_count INTEGER,
+                        posted_at TEXT,
+                        FOREIGN KEY(article_id) REFERENCES articles(id));
+                    CREATE TABLE comments (
+                        id INTEGER PRIMARY KEY,
+                        thread_id INTEGER,
+                        poster TEXT,
+                        body TEXT,
+                        permalink TEXT,
+                        karma INTEGER,
+                        comment_count INTEGER,
+                        posted_at TEXT,
+                        FOREIGN KEY(thread_id) REFERENCES threads(id));
+                    CREATE INDEX article_urls ON articles(url);
+                    CREATE INDEX thread_permalinks ON threads(permalink);
+                    CREATE INDEX comment_permalinks ON comments(permalink);
+                    """)
+            version = int(get_setting('schema_version'))
+        elif version == 1:
+            logger.info("Updating database to version 2...")
+            set_setting("schema_version",2)
+            c.executescript("""
+                    ALTER TABLE threads ADD COLUMN handled INTEGER NOT NULL DEFAULT 0;
+                    """)
+            version = int(get_setting('schema_version'))
+        elif version == 2:
+            logger.info("Updating database to version 3...")
+            set_setting("schema_version",3)
+            c.executescript("""
+                    CREATE TABLE xposts (
+                        source_id INTEGER NOT NULL,
+                        target_id INTEGER NOT NULL,
+                        status TEXT,
+                        comment_id INTEGER,
+                        FOREIGN KEY(source_id) REFERENCES threads(id),
+                        FOREIGN KEY(target_id) REFERENCES threads(id));
+                    CREATE INDEX xpost_sources ON xposts(source_id);
+                    CREATE INDEX xpost_targets ON xposts(target_id);
+                    """)
+            version = int(get_setting('schema_version'))
+        elif version > 3:
+            logger.critical("Unknown database version %d.", version)
+            exit(1)
 
 def get_article_ids():
     """
