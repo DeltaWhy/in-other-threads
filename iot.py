@@ -49,18 +49,16 @@ def get_threads(subreddit_name):
     for thread in threads:
         if thread.is_self:
             continue
-        c.execute("SELECT * FROM threads WHERE permalink=?", (thread.permalink,))
-        row = c.fetchone()
+        row = db.select_one("SELECT id FROM threads WHERE permalink=?", thread.permalink)
         if row == None:
             logger.info("Found new thread %s in %s", thread.id, sr.display_name)
-            c.execute("SELECT id FROM articles WHERE url=?", (thread.url,))
-            row = c.fetchone()
+            row = db.select_one("SELECT id FROM articles WHERE url=?", thread.url)
             if row == None:
                 c.execute("INSERT INTO articles (url) VALUES (?)", (thread.url,))
                 db.db.commit()
                 article_id = c.lastrowid
             else:
-                article_id = row[0]
+                article_id = row['id']
             c.execute("INSERT INTO threads (article_id, poster, subreddit, permalink, karma, comment_count, posted_at) VALUES (?,?,?,?,?,?,?)",
                     [article_id, thread.author.name, sr.display_name, thread.permalink, thread.score, thread.num_comments,
                         datetime.datetime.utcfromtimestamp(thread.created_utc)])
@@ -68,13 +66,10 @@ def get_threads(subreddit_name):
 
 def get_best_comment(thread_id):
     c = db.db.cursor()
-    c.execute("""SELECT id, article_id, poster, subreddit, permalink, karma, comment_count, posted_at
-                FROM threads WHERE id=?""", (thread_id,))
-    thread_row = c.fetchone()
+    thread_row = db.select_one("SELECT * FROM threads WHERE id=?", thread_id)
     if thread_row == None:
         raise KeyError("Thread %d not found in database." % thread_id)
-    permalink = thread_row[4]
-    thread = reddit.get_submission(url=permalink)
+    thread = reddit.get_submission(url=thread_row['permalink'])
 
     # comments are sorted by best by default
     # loop until we find a real comment
@@ -83,12 +78,11 @@ def get_best_comment(thread_id):
             continue
         if type(comment) == praw.objects.MoreComments:
             return
-        c.execute("SELECT id FROM comments WHERE permalink=?", (comment.permalink,))
-        if c.fetchone():
+        if db.select_one("SELECT id FROM comments WHERE permalink=?", comment.permalink):
             return #don't double-create
         logger.info("Found new comment %s on thread %s in %s", comment.id, thread.id, thread.subreddit.display_name)
         c.execute("INSERT INTO comments (thread_id, poster, body, permalink, karma, comment_count, posted_at) VALUES (?,?,?,?,?,?,?)",
-                [thread_row[0], comment.author.name, comment.body, comment.permalink, comment.score, None,
+                [thread_row['id'], comment.author.name, comment.body, comment.permalink, comment.score, None,
                     datetime.datetime.utcfromtimestamp(comment.created_utc)])
         db.db.commit()
         return
@@ -102,21 +96,15 @@ def do_post(source=None, target=None):
     logger.info("Cross-post from %d to %d", source, target)
     c = db.db.cursor()
 
-    c.execute("""SELECT id, article_id, poster, subreddit, permalink, karma, comment_count, posted_at
-                FROM threads WHERE id=?""", (source,))
-    thread_row = c.fetchone()
+    thread_row = db.select_one("SELECT * FROM threads WHERE id=?", source)
     if thread_row == None:
         raise KeyError("Thread %d not found in database." % source)
 
-    c.execute("""SELECT id, article_id, poster, subreddit, permalink, karma, comment_count, posted_at
-                FROM threads WHERE id=?""", (target,))
-    target_row = c.fetchone()
+    target_row = db.select_one("SELECT * FROM threads WHERE id=?", target)
     if target_row == None:
         raise KeyError("Thread %d not found in database." % source)
 
-    c.execute("""SELECT id, thread_id, poster, body, permalink, karma, comment_count, posted_at
-                FROM comments WHERE thread_id=? ORDER BY id DESC""", (source,))
-    comment_row = c.fetchone()
+    comment_row = db.select_one("SELECT * FROM comments WHERE thread_id=? ORDER BY id DESC", source)
     if comment_row == None:
         logger.info("No comment found for %d", source)
         return
@@ -130,8 +118,8 @@ Selected comment from that thread:
 
 ***
 [^(about this bot)](http://google.com)
-""" % {'subreddit': thread_row[3], 'permalink': thread_row[4], 'quoted_comment': quote_comment(comment_row[3]),
-        'poster': comment_row[2], 'comment_permalink': comment_row[4]}
+""" % {'subreddit': thread_row['subreddit'], 'permalink': thread_row['permalink'], 'quoted_comment': quote_comment(comment_row['body']),
+        'poster': comment_row['poster'], 'comment_permalink': comment_row['permalink']}
 
     if not(args) or args.username == None:
         logger.info("Not posting because not logged in.")
@@ -139,12 +127,12 @@ Selected comment from that thread:
     if args and args.no_post:
         logger.info("Not posting because --no-post was given.")
         return
-    if target_row[3] != 'test':
+    if target_row['subreddit'] != 'test':
         logger.info("Not posting because not in /r/test.")
         return
 
     logger.debug(post)
-    target = reddit.get_submission(url=target_row[4])
+    target = reddit.get_submission(url=target_row['permalink'])
     comment = target.add_comment(post)
     c.execute("INSERT INTO comments (thread_id, poster, body, permalink, karma, comment_count, posted_at) VALUES (?,?,?,?,?,?,?)",
             [target, comment.author.name, comment.body, comment.permalink, comment.score, None,

@@ -4,15 +4,11 @@ logger = logging.getLogger(__name__)
 db = None
 
 def get_setting(key):
-    if db == None:
-        raise RuntimeError('DB not initialized')
-    c = db.cursor()
-    c.execute("SELECT value FROM meta WHERE key=?", (key,))
-    row = c.fetchone()
+    row = select_one("SELECT value FROM meta WHERE key=?", key)
     if row == None:
         return None
     else:
-        return row[0]
+        return row['value']
 
 def set_setting(key, value):
     if db == None:
@@ -20,6 +16,35 @@ def set_setting(key, value):
     c = db.cursor()
     c.execute("INSERT OR REPLACE INTO meta VALUES (?,?)", (key, value,))
     db.commit()
+
+def select(sql, *params):
+    if db == None:
+        raise RuntimeError('DB not initialized')
+    c = db.cursor()
+    c.execute(sql, params)
+    columns = [x[0] for x in c.description]
+    objs = []
+    for row in c:
+        obj = {}
+        for i in range(len(columns)):
+            obj[columns[i]] = row[i]
+        objs.append(obj)
+    return objs
+
+def select_one(sql, *params):
+    if db == None:
+        raise RuntimeError('DB not initialized')
+    c = db.cursor()
+    c.execute(sql, params)
+    columns = [x[0] for x in c.description]
+    row = c.fetchone()
+    if row == None:
+        return None
+    else:
+        obj = {}
+        for i in range(len(columns)):
+            obj[columns[i]] = row[i]
+        return obj
 
 def init_db():
     """
