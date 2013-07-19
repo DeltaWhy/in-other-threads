@@ -46,6 +46,21 @@ def select_one(sql, *params):
             obj[columns[i]] = row[i]
         return obj
 
+def insert(table_name, obj=None, **kwargs):
+    if obj == None and len(kwargs) == 0:
+        raise ArgumentError("Nothing given to insert")
+    elif obj != None and len(kwargs) != 0:
+        raise ArgumentError("Can't give both dict and keyword arguments")
+    elif obj == None and len(kwargs) > 0:
+        obj = kwargs
+    if db == None:
+        raise RuntimeError('DB not initialized')
+    c = db.cursor()
+    sql = "INSERT INTO %s (%s) VALUES (%s)" % (table_name, ', '.join(obj.keys()), ','.join(['?' for x in obj.values()]))
+    c.execute(sql, list(obj.values()))
+    db.commit()
+    return c.lastrowid
+
 def init_db():
     """
     Initialize the database connection. Creates the database if it does

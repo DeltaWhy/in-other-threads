@@ -54,15 +54,12 @@ def get_threads(subreddit_name):
             logger.info("Found new thread %s in %s", thread.id, sr.display_name)
             row = db.select_one("SELECT id FROM articles WHERE url=?", thread.url)
             if row == None:
-                c.execute("INSERT INTO articles (url) VALUES (?)", (thread.url,))
-                db.db.commit()
-                article_id = c.lastrowid
+                article_id = db.insert('articles', url=thread.url)
             else:
                 article_id = row['id']
-            c.execute("INSERT INTO threads (article_id, poster, subreddit, permalink, karma, comment_count, posted_at) VALUES (?,?,?,?,?,?,?)",
-                    [article_id, thread.author.name, sr.display_name, thread.permalink, thread.score, thread.num_comments,
-                        datetime.datetime.utcfromtimestamp(thread.created_utc)])
-            db.db.commit()
+            db.insert('threads', {'article_id': article_id, 'poster': thread.author.name, 'subreddit': sr.display_name,
+                'permalink': thread.permalink, 'karma': thread.score, 'comment_count': thread.num_comments,
+                'posted_at': datetime.datetime.utcfromtimestamp(thread.created_utc)})
 
 def get_best_comment(thread_id):
     c = db.db.cursor()
@@ -81,10 +78,8 @@ def get_best_comment(thread_id):
         if db.select_one("SELECT id FROM comments WHERE permalink=?", comment.permalink):
             return #don't double-create
         logger.info("Found new comment %s on thread %s in %s", comment.id, thread.id, thread.subreddit.display_name)
-        c.execute("INSERT INTO comments (thread_id, poster, body, permalink, karma, comment_count, posted_at) VALUES (?,?,?,?,?,?,?)",
-                [thread_row['id'], comment.author.name, comment.body, comment.permalink, comment.score, None,
-                    datetime.datetime.utcfromtimestamp(comment.created_utc)])
-        db.db.commit()
+        db.insert('comments', {'thread_id': thread_row['id'], 'poster': comment.author.name, 'body': comment.body,
+            'permalink': comment.permalink, 'karma': comment.score, 'posted_at': datetime.datetime.utcfromtimestamp(comment.created_utc)})
         return
 
 def quote_comment(comment):
@@ -134,9 +129,8 @@ Selected comment from that thread:
     logger.debug(post)
     target = reddit.get_submission(url=target_row['permalink'])
     comment = target.add_comment(post)
-    c.execute("INSERT INTO comments (thread_id, poster, body, permalink, karma, comment_count, posted_at) VALUES (?,?,?,?,?,?,?)",
-            [target, comment.author.name, comment.body, comment.permalink, comment.score, None,
-                datetime.datetime.utcfromtimestamp(comment.created_utc)])
+    db.insert('comments', {'thread_id': target, 'poster': comment.author.name, 'body': comment.body,
+        'permalink': comment.permalink, 'karma': comment.score, 'posted_at': datetime.datetime.utcfromtimestamp(comment.created_utc)})
     c.execute("UPDATE threads SET handled=1 WHERE id=?", (target,))
     db.db.commit()
 
