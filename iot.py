@@ -91,8 +91,8 @@ def do_post(source=None, target=None):
     logger.info("Cross-post from %d to %d", source, target)
     c = db.db.cursor()
 
-    thread_row = db.select_one("SELECT * FROM threads WHERE id=?", source)
-    if thread_row == None:
+    source_row = db.select_one("SELECT * FROM threads WHERE id=?", source)
+    if source_row == None:
         raise KeyError("Thread %d not found in database." % source)
 
     target_row = db.select_one("SELECT * FROM threads WHERE id=?", target)
@@ -113,7 +113,7 @@ Selected comment from that thread:
 
 ***
 [^(about this bot)](http://google.com)
-""" % {'subreddit': thread_row['subreddit'], 'permalink': thread_row['permalink'], 'quoted_comment': quote_comment(comment_row['body']),
+""" % {'subreddit': source_row['subreddit'], 'permalink': source_row['permalink'], 'quoted_comment': quote_comment(comment_row['body']),
         'poster': comment_row['poster'], 'comment_permalink': comment_row['permalink']}
 
     if not(args) or args.username == None:
@@ -127,12 +127,11 @@ Selected comment from that thread:
         return
 
     logger.debug(post)
-    target = reddit.get_submission(url=target_row['permalink'])
-    comment = target.add_comment(post)
-    db.insert('comments', {'thread_id': target, 'poster': comment.author.name, 'body': comment.body,
+    thread = reddit.get_submission(url=target_row['permalink'])
+    comment = thread.add_comment(post)
+    comment_id = db.insert('comments', {'thread_id': target, 'poster': comment.author.name, 'body': comment.body,
         'permalink': comment.permalink, 'karma': comment.score, 'posted_at': datetime.datetime.utcfromtimestamp(comment.created_utc)})
-    c.execute("UPDATE threads SET handled=1 WHERE id=?", (target,))
-    db.db.commit()
+    db.insert('xposts', {'source_id': source, 'target_id': target, 'status': 'posted', 'comment_id': comment_id})
 
 
 ##MAIN PROGRAM
@@ -175,10 +174,18 @@ if __name__ == "__main__":
             if len(threads) > 0:
                 targets[article] = threads
 
+    possible_xposts = []
     for article,target_threads in targets.items():
         for target_thread in target_threads:
             source_threads = [x for x in sources[article]] #no list.copy in Python 3.1!!!
             if target_thread in source_threads:
                 source_threads.remove(target_thread)
             for source_thread in source_threads:
-                do_post(source=source_thread, target=target_thread)
+                possible_xposts.append((source_thread, target_thread))
+    logger.debug("Possible xposts: %s", possible_xposts)
+    for source, target in possible_xposts:
+        xpost = db.select_one("SELECT * FROM xposts WHERE source_id=? AND target_id=?", source, target)
+        if xpost == None:
+            do_post(source=source, target=target)
+        else:
+            logger.info("%d to %d has already been posted", source, target)

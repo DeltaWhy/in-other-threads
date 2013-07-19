@@ -182,7 +182,6 @@ def get_target_thread_ids(article_id):
     # don't bump old threads
     # we don't want to be too disruptive so for now also avoid new/small threads
     c.execute("""SELECT id FROM threads WHERE article_id=?
-                    AND handled = 0
                     AND (
                             (posted_at < DATETIME('NOW', '-4 hours')
                             AND posted_at > DATETIME('NOW', '-30 hours')
