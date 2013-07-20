@@ -12,6 +12,9 @@ if __name__ == "__main__":
                 epilog='This script exits after finishing its work, so it should be run in a cron job or similar.')
     parser.add_argument('username', nargs='?', help='Username for the bot. If not provided, will not attempt to post.')
     parser.add_argument('password', nargs='?', help='Password for the bot. If not provided, will prompt.')
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument('--test', help="Only post to /r/test.", action='store_true')
+    mode.add_argument('--live', help="Post to any subreddit in the list.", action='store_true')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--debug', help="Show debug messages.", action='store_true')
     group.add_argument('-q','--quiet', dest='quiet', help="Suppress info messages in console.", action='store_true')
@@ -112,7 +115,7 @@ Selected comment from that thread:
 ^(by /u/%(poster)s ()[^link](%(comment_permalink)s)^)
 
 ***
-[^(about this bot)](http://google.com)
+[^(about this bot)](http://tinyurl.com/inotherthreads)
 """ % {'subreddit': source_row['subreddit'], 'permalink': source_row['permalink'], 'quoted_comment': quote_comment(comment_row['body']),
         'poster': comment_row['poster'], 'comment_permalink': comment_row['permalink']}
 
@@ -122,8 +125,8 @@ Selected comment from that thread:
     if args and args.no_post:
         logger.info("Not posting because --no-post was given.")
         return
-    if target_row['subreddit'] != 'test':
-        logger.info("Not posting because not in /r/test.")
+    if args and args.test and target_row['subreddit'] != 'test':
+        logger.info("Not posting because --test given and not in /r/test.")
         return
 
     logger.debug(post)
