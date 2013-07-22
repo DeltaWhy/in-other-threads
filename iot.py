@@ -114,15 +114,15 @@ def do_post(source=None, target=None):
         logger.info("No comment found for %d", source)
         return
 
-    post = """This article is also being discussed in [a thread in /r/%(subreddit)s](%(permalink)s).
+    post = """This article is also being discussed in [a thread in /r/%(subreddit)s](%(comment_permalink)s).
 
 Selected comment from that thread:
 %(quoted_comment)s
 
-^(by /u/%(poster)s ()[^link](%(comment_permalink)s)^)
+^(by u/%(poster)s)
 
 ***
-[^(about this bot)](http://tinyurl.com/inotherthreads)
+[^(about this bot)](http://www.reddit.com/r/botwatch/comments/1it7o3/inotherthreads_a_bot_to_find_crossposted_articles/)
 """ % {'subreddit': source_row['subreddit'], 'permalink': source_row['permalink'], 'quoted_comment': quote_comment(comment_row['body']),
         'poster': comment_row['poster'], 'comment_permalink': comment_row['permalink']}
 
@@ -197,5 +197,7 @@ if __name__ == "__main__":
         xpost = db.select_one("SELECT * FROM xposts WHERE source_id=? AND target_id=?", source, target)
         if xpost == None:
             do_post(source=source, target=target)
+            logger.info("Quitting after one post to avoid rate limit issues.")
+            exit(0)
         else:
             logger.info("%d to %d has already been posted", source, target)
