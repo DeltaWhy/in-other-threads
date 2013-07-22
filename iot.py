@@ -52,7 +52,7 @@ def get_threads(subreddit_name):
     for thread in threads:
         if thread.is_self:
             continue
-        row = db.select_one("SELECT id FROM threads WHERE permalink=?", thread.permalink)
+        row = db.select_one("SELECT * FROM threads WHERE permalink=?", thread.permalink)
         if row == None:
             logger.info("Found new thread %s in %s", thread.id, sr.display_name)
             row = db.select_one("SELECT id FROM articles WHERE url=?", thread.url)
@@ -63,6 +63,10 @@ def get_threads(subreddit_name):
             db.insert('threads', {'article_id': article_id, 'poster': thread.author.name, 'subreddit': sr.display_name,
                 'permalink': thread.permalink, 'karma': thread.score, 'comment_count': thread.num_comments,
                 'posted_at': datetime.datetime.utcfromtimestamp(thread.created_utc)})
+        else:
+            logger.info("Updating thread %d in %s from %d to %d comments", row['id'], sr.display_name, row['comment_count'], thread.num_comments)
+            c.execute("UPDATE threads SET comment_count=? WHERE id=?", (thread.num_comments, row['id']))
+            db.db.commit()
 
 def get_best_comment(thread_id):
     c = db.db.cursor()
