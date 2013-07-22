@@ -151,7 +151,7 @@ reddit = None
 subreddits = ["anarchism","conservative","inthenews","liberal","libertarian","news","politics","socialism","technology","worldnews","worldpolitics","test"]
 
 if __name__ == "__main__":
-    reddit = praw.Reddit(user_agent="InOtherThreads v0.1 github.com/DeltaWhy/in-other-threads")
+    reddit = praw.Reddit(user_agent="InOtherThreads v0.2 github.com/DeltaWhy/in-other-threads")
     if args.username == None:
         logger.warning("No login given, running in test mode.")
     elif args.password == None:
