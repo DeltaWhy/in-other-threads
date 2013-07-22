@@ -80,6 +80,9 @@ def get_best_comment(thread_id):
     for comment in thread.comments:
         if not(comment.author): #[deleted]
             continue
+        # don't quote ourselves :/
+        if args and args.username and comment.author.name.lower() == args.username.lower():
+            continue
         if type(comment) == praw.objects.MoreComments:
             return
         if db.select_one("SELECT id FROM comments WHERE permalink=?", comment.permalink):
