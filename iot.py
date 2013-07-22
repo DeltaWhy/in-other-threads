@@ -109,7 +109,7 @@ def do_post(source=None, target=None):
     if target_row == None:
         raise KeyError("Thread %d not found in database." % source)
 
-    comment_row = db.select_one("SELECT * FROM comments WHERE thread_id=? ORDER BY id DESC", source)
+    comment_row = db.select_one("SELECT * FROM comments WHERE thread_id=? AND LOWER(poster)!=? ORDER BY id DESC", source, (args.username if args else ''))
     if comment_row == None:
         logger.info("No comment found for %d", source)
         return
