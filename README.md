@@ -3,6 +3,8 @@ in-other-threads
 
 A Reddit bot to encourage better political discussions
 
+http://www.reddit.com/user/InOtherThreads
+
 ~~~
 usage: iot.py [-h] (--test | --live) [--debug | -q] [--no-fetch] [--no-post]
               [username] [password]
